@@ -100,9 +100,12 @@ jobs:
             -e WITH_CHISEL="$WITH_CHISEL" -e WITH_EDA="$WITH_EDA" \
             ${{ env.IMAGE }}:ci \
             bash -euo pipefail -c '
+              # Container default user
+              test "$(id -un)" = ysyx
+              sudo -n true
               test "$(command -v verilator)" = /home/linuxbrew/.linuxbrew/bin/verilator
               verilator --version
-              runuser -u linuxbrew -- brew list --versions verilator
+              sudo -Hu linuxbrew -- /home/linuxbrew/.linuxbrew/bin/brew list --versions verilator
               # sed -n 1p reads to EOF: head -n 1 would SIGPIPE the writer
               # (exit 141) and pipefail would kill the whole script.
               iverilog -V 2>&1 | sed -n 1p
@@ -115,7 +118,7 @@ jobs:
               /usr/bin/python3 -c "import numpy"
               test "$(git config --system --get url.https://github.com/.insteadof)" = "git@github.com:"
               ysyx-setup
-              test -x /workspace/ysyx-workbench/init.sh
+              test -x /home/ysyx/ysyx-workbench/init.sh
               # Build-time compiled NVBoard archive must ship in every variant.
               test -s /opt/nvboard/build/nvboard.a
               test -s /usr/local/lib/libnvboard.a

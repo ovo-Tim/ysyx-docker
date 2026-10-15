@@ -39,25 +39,26 @@ Chisel 版（额外含 OpenJDK 21 + Mill）：`--build-arg WITH_CHISEL=1`。
 
 ## 2. 启动容器
 
-Linux host：
+容器默认以专用非 root 用户 `ysyx` 登录（家目录 `/home/ysyx`，具备免密 sudo）：
 
 ```bash
 mkdir -p "$HOME/ysyx-work"
 docker run --rm -it \
-  --user "$(id -u):$(id -g)" -e HOME=/workspace \
-  -v "$HOME/ysyx-work:/workspace" \
+  -v "$HOME/ysyx-work:/home/ysyx" \
   ysyx:2607
 ```
+
+容器内可以随时 `sudo apt-get install ...`（免密）；预编译 NVBoard 位于 `/opt/nvboard`（root 只读）。
 
 容器内部：
 
 ```bash
+id      # ysyx
 which verilator
 verilator --version
 # 应指向 /home/linuxbrew/.linuxbrew/bin/verilator
 
-brew --version
-brew list --versions verilator
+sudo -Hu linuxbrew brew list --versions verilator
 riscv64-linux-gnu-gcc --version
 riscv64-unknown-elf-gcc --version
 
@@ -67,7 +68,8 @@ git config --global user.email 'you@example.com'
 ysyx-setup --all
 ```
 
-如只需要特定子工程：`ysyx-setup` 创建 workbench，之后执行 `cd "$YSYX_HOME"; bash init.sh nvboard` 等。
+`ysyx-setup` 会把模板工作区复制到 `/home/ysyx/ysyx-workbench`（即 `$YSYX_HOME`），随后 init.sh 在其中初始化子工程。
+如只需要特定子工程：执行 `cd "$YSYX_HOME"; bash init.sh nvboard` 等。
 
 `ysyx-setup --chisel` 会调用官方 Chisel 初始化，但它会删除原 NPC starter：只在 `npc` 无本地修改和生成文件时允许执行。`mill` 在首次编译时从 Maven 下载 Chisel/Scala 依赖。推荐持久化用户的 cache 目录以避免重复下载。
 

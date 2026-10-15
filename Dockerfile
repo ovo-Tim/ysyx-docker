@@ -32,7 +32,7 @@ ARG ECOS_STUDIO_TAG=v0.1.0-alpha.9
 RUN set -eux; \
     apt-get update; \
     apt-get install -y --no-install-recommends \
-      ca-certificates curl wget git git-lfs openssh-client \
+      ca-certificates curl wget git git-lfs openssh-client sudo \
       bash bash-completion coreutils findutils diffutils file less sed grep gawk \
       make build-essential cmake ninja-build pkg-config util-linux bzip2 \
       perl python3 python-is-python3 python3-dev python3-pip python3-venv \
@@ -52,6 +52,14 @@ RUN set -eux; \
       libfuse2t64 libnss3 libgbm1 libasound2t64 libx11-6; \
     apt-get clean; \
     rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*.deb
+
+# Dedicated non-root login user with passwordless sudo; the container's
+# default entry user.
+RUN set -eux; \
+    useradd --create-home --shell /bin/bash ysyx; \
+    usermod -aG sudo ysyx; \
+    echo 'ysyx ALL=(ALL) NOPASSWD:ALL' >/etc/sudoers.d/ysyx; \
+    chmod 0440 /etc/sudoers.d/ysyx
 
 # Homebrew's officially supported Linux prefix is essential for prebuilt bottles.
 # Homebrew cannot run "brew install" as root. Use a dedicated brew-owned account.
@@ -101,7 +109,7 @@ ENV XDG_CACHE_HOME=/opt/ysyx-cache \
 # Pre-create the writable cache root for non-root users in every variant:
 # brew (linuxbrew) and runtime students must be able to write here.
 RUN set -eux; \
-    mkdir -p "${XDG_CACHE_HOME}" "${COURSIER_CACHE}"
+    install -d -m 0777 "${XDG_CACHE_HOME}" "${COURSIER_CACHE}"
 
 # Optional Chisel profile: install Java + Mill, then actually compile and test
 # the official Chisel template at build time. Keep dependency caches and out/
@@ -171,13 +179,13 @@ RUN set -eux; \
 # Environment variables are available without sourcing a per-user shell rc.
 # IMPORTANT: Homebrew/bin comes FIRST, before OSS CAD Suite and /usr/bin.
 ENV ICS55_PDK=/opt/icsprout55-pdk \
-    YSYX_HOME=/workspace/ysyx-workbench \
-    NEMU_HOME=/workspace/ysyx-workbench/nemu \
-    AM_HOME=/workspace/ysyx-workbench/abstract-machine \
-    NAVY_HOME=/workspace/ysyx-workbench/navy-apps \
-    NVBOARD_HOME=/workspace/ysyx-workbench/nvboard \
-    NPC_HOME=/workspace/ysyx-workbench/npc \
-    BENCH_HOME=/workspace/ysyx-workbench/archbench
+    YSYX_HOME=/home/ysyx/ysyx-workbench \
+    NEMU_HOME=/home/ysyx/ysyx-workbench/nemu \
+    AM_HOME=/home/ysyx/ysyx-workbench/abstract-machine \
+    NAVY_HOME=/home/ysyx/ysyx-workbench/navy-apps \
+    NVBOARD_HOME=/home/ysyx/ysyx-workbench/nvboard \
+    NPC_HOME=/home/ysyx/ysyx-workbench/npc \
+    BENCH_HOME=/home/ysyx/ysyx-workbench/archbench
 
 # Original init.sh performs shallow clones itself. Only copy the template in
 # the image; call init.sh later within the student's mounted workspace.
@@ -185,7 +193,6 @@ RUN set -eux; \
     git clone --depth=1 --branch master \
       https://github.com/OSCPU/ysyx-workbench.git /opt/ysyx-workbench-template; \
     git config --system url."https://github.com/".insteadOf 'git@github.com:'; \
-    mkdir -p /workspace; \
     test -s /usr/local/lib/libnvboard.a; \
     test "$(command -v verilator)" = /home/linuxbrew/.linuxbrew/bin/verilator; \
     riscv64-linux-gnu-gcc --version | head -n 1; \
@@ -208,9 +215,10 @@ for arg in "$@"; do
   esac
 done
 
-repo=/workspace/ysyx-workbench
+repo=/home/ysyx/ysyx-workbench
 if [[ ! -e "$repo" ]]; then
-  # cp -R, not cp -a: bind-mounted /workspace may belong to a non-root user.
+  # cp -R, not cp -a: a bind-mounted /home/ysyx may belong to another uid; as
+  # the non-root user we have created the copy with our own ownership.
   cp -R /opt/ysyx-workbench-template "$repo"
   echo "Initialized workbench at $repo"
 elif [[ ! -d "$repo/.git" || ! -f "$repo/init.sh" ]]; then
@@ -257,5 +265,8 @@ BASH
 chmod 0755 /usr/local/bin/ysyx-setup
 SCRIPT
 
-WORKDIR /workspace
+# The container runs as the dedicated non-root user; ~/.workspaces live in
+# /home/ysyx, and passwordless sudo is available for installation work.
+WORKDIR /home/ysyx
+USER ysyx
 CMD ["/bin/bash"]
