@@ -43,7 +43,7 @@ jobs:
               test "$(command -v verilator)" = /home/linuxbrew/.linuxbrew/bin/verilator
               verilator --version
               runuser -u linuxbrew -- brew list --versions verilator
-              mill --version
+              mill version
               iverilog -V 2>&1 | head -n 1
               yosys -V
               z3 --version

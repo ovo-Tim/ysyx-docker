@@ -69,11 +69,12 @@ RUN set -eux; \
     verilator --version; \
     runuser -u linuxbrew -- /home/linuxbrew/.linuxbrew/bin/brew list --versions verilator
 
-# Mill is distributed as a ready-to-run release executable, not built here.
-# The first Chisel project compile downloads Scala/Chisel artifacts as needed.
+# Mill 1.x is distributed via Maven Central as a bootstrap launcher script
+# (GitHub releases no longer carry assets). mill version downloads the actual
+# dist artifact on first run; the first Chisel compile pulls Scala/Chisel deps.
 RUN set -eux; \
     curl -fL --retry 5 --retry-all-errors \
-      "https://github.com/com-lihaoyi/mill/releases/download/${MILL_VERSION}/${MILL_VERSION}" \
+      "https://repo1.maven.org/maven2/com/lihaoyi/mill-dist/${MILL_VERSION}/mill-dist-${MILL_VERSION}-mill.sh" \
       -o /usr/local/bin/mill; \
     chmod 0755 /usr/local/bin/mill; \
     test -s /usr/local/bin/mill

@@ -30,7 +30,7 @@ docker build --platform=linux/amd64 --progress=plain \
 | GCC/G++、Clang、GDB、QEMU、RISC-V Linux + ELF GCC | Debian binary packages |
 | NVBoard 的 SDL2、image、ttf 开发依赖 | Debian binary packages |
 | Python、NumPy、time、parallel、OpenJDK | Debian binary packages |
-| Mill 1.1.0 | 官方 GitHub release executable |
+| Mill 1.1.0 | Maven Central `mill-dist` bootstrap launcher（Mill 1.x 起 GitHub releases 不再提供资产） |
 | OSS CAD Suite、ECC、ECOS Studio | `WITH_EDA=1` 下载官方发布的 Linux binaries |
 | ICsprout55 PDK | `WITH_EDA=1` shallow clone + 官方解包/patch |
 | NEMU、AM、NPC、NVBoard | 在课程 workspace 使用官方 `init.sh` 初始化（学生源码应保持可编辑） |
