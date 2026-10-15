@@ -79,8 +79,10 @@ jobs:
 
       - name: Push to Docker Hub
         if: github.event_name != 'pull_request'
+        env:
+          TAGS: ${{ steps.meta.outputs.tags }}
         run: |
-          for tag in ${{ steps.meta.outputs.tags }}; do
+          for tag in $TAGS; do
             docker tag ${{ env.IMAGE }}:ci "$tag"
             docker push "$tag"
           done
@@ -137,8 +139,10 @@ jobs:
             type=sha,suffix=-eda
 
       - name: Push EDA image to Docker Hub
+        env:
+          TAGS: ${{ steps.meta.outputs.tags }}
         run: |
-          for tag in ${{ steps.meta.outputs.tags }}; do
+          for tag in $TAGS; do
             docker tag ${{ env.IMAGE }}:eda "$tag"
             docker push "$tag"
           done
