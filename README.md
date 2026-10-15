@@ -89,10 +89,10 @@ GTKWave、NVBoard 和 ECOS Studio 需要宿主机提供 X11/Wayland 图形转发
 
 | Tag | 说明 |
 | --- | --- |
-| `ovo-tim/ysyx:latest` | `main` 分支每次构建 |
-| `ovo-tim/ysyx:sha-xxxxxxx` | 每次构建的 commit 标签 |
-| `ovo-tim/ysyx:<vx.y.z>` | `v*` tag |
-| `ovo-tim/ysyx:eda` / `:sha-xxxxxxx-eda` | `WITH_EDA=1` 完整 EDA 版，仅在 Actions 页手动触发并勾选 `with_eda` 时构建 |
+| `ovotim/ysyx:latest` | `main` 分支每次构建 |
+| `ovotim/ysyx:sha-xxxxxxx` | 每次构建的 commit 标签 |
+| `ovotim/ysyx:<vx.y.z>` | `v*` tag |
+| `ovotim/ysyx:eda` / `:sha-xxxxxxx-eda` | `WITH_EDA=1` 完整 EDA 版，仅在 Actions 页手动触发并勾选 `with_eda` 时构建 |
 
 必需的仓库 secrets（Settings → Secrets and variables → Actions，已确认设置）：
 
