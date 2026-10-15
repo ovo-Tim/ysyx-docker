@@ -99,7 +99,7 @@ jobs:
           docker run --rm \
             -e WITH_CHISEL="$WITH_CHISEL" -e WITH_EDA="$WITH_EDA" \
             ${{ env.IMAGE }}:ci \
-            bash -euo pipefail -c '
+            bash -euo pipefail -x -c '
               # Container default user
               test "$(id -un)" = ysyx
               sudo -n true
