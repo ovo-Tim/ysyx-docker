@@ -1,0 +1,127 @@
+name: docker
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      with_eda:
+        description: 'Also build full EDA image (WITH_EDA=1, linux/amd64, ~2GB downloads)'
+        type: boolean
+        default: false
+
+env:
+  IMAGE: ovo-tim/ysyx
+
+permissions:
+  contents: read
+
+jobs:
+  base:
+    name: Build + test + push (base)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build base image (load locally)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: ${{ env.IMAGE }}:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Smoke-test image
+        run: |
+          docker run --rm ${{ env.IMAGE }}:ci \
+            bash -euo pipefail -c '
+              test "$(command -v verilator)" = /home/linuxbrew/.linuxbrew/bin/verilator
+              verilator --version
+              runuser -u linuxbrew -- brew list --versions verilator
+              mill --version
+              iverilog -V 2>&1 | head -n 1
+              yosys -V
+              z3 --version
+              riscv64-linux-gnu-gcc --version | head -n 1
+              riscv64-unknown-elf-gcc --version | head -n 1
+              python3 -c "import numpy"
+              java -version 2>&1 | head -n 1
+              test "$(git config --system --get url.https://github.com/.insteadof)" = "git@github.com:"
+              ysyx-setup
+              test -x /workspace/ysyx-workbench/init.sh
+            '
+
+      - name: Docker Hub tags
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=semver,pattern={{version}}
+            type=sha
+
+      - name: Push to Docker Hub
+        if: github.event_name != 'pull_request'
+        run: |
+          for tag in ${{ steps.meta.outputs.tags }}; do
+            docker tag ${{ env.IMAGE }}:ci "$tag"
+            docker push "$tag"
+          done
+
+  eda:
+    name: Build + test + push (WITH_EDA=1)
+    runs-on: ubuntu-latest
+    needs: base
+    if: github.event_name == 'workflow_dispatch' && inputs.with_eda
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build EDA image (load locally, WITH_EDA=1)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          build-args: WITH_EDA=1
+          tags: ${{ env.IMAGE }}:eda
+          # Reuse the shared cache (early layers are identical to the base
+          # build); write only the EDA-specific layers into a separate scope.
+          cache-from: type=gha
+          cache-to: type=gha,scope=eda,mode=max
+
+      - name: Smoke-test EDA image
+        run: |
+          docker run --rm ${{ env.IMAGE }}:eda \
+            bash -euo pipefail -c '
+              test "$(command -v verilator)" = /home/linuxbrew/.linuxbrew/bin/verilator
+              verilator --version
+              /opt/oss-cad-suite/bin/yosys -V
+              test -x /opt/ecc/ecc
+              test -x /usr/local/bin/ecos-studio
+              test -f "$ICS55_PDK/patch/patch.sh"
+              test -d "$ICS55_PDK/.git"
+            '
+
+      - name: Docker Hub tags (EDA)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE }}
+          flavor: latest=false
+          tags: |
+            type=raw,value=eda,enable={{is_default_branch}}
+            type=sha,suffix=-eda
+
+      - name: Push EDA image to Docker Hub
+        run: |
+          for tag in ${{ steps.meta.outputs.tags }}; do
+            docker tag ${{ env.IMAGE }}:eda "$tag"
+            docker push "$tag"
+          done
