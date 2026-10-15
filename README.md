@@ -8,18 +8,18 @@ Homebrew formula 2026-10-10 数据显示 Verilator **5.052**（同时间 Debian 
 
 ## 1. 构建
 
-基础 E4 / E6：
+基础（无 Chisel、无 EDA）：
 
 ```bash
 docker build --progress=plain -t ysyx:2607 .
 ```
 
-包含 E6/E8 更完整的 EDA 工具（x86_64，额外下载较大）：
+Chisel 版（额外含 OpenJDK 21 + Mill）：`--build-arg WITH_CHISEL=1`。
+完整 EDA 版（无 Chisel，需 amd64 + 大下载量）：`--build-arg WITH_EDA=1 --platform=linux/amd64`。
+全量版（Chisel + EDA）：上面两个 build-arg 同时给。
 
-```bash
-docker build --platform=linux/amd64 --progress=plain \
-  --build-arg WITH_EDA=1 -t ysyx:2607-full .
-```
+每个开关独立，Docker Hub 对应四个 tag：`latest` / `chisel` / `eda` / `full`。
+需要跑 `ysyx-setup --chisel`（mill 编译 Chisel NPC）请使用 `chisel` 或 `full` 镜像。
 
 安装来源：
 
@@ -29,8 +29,8 @@ docker build --platform=linux/amd64 --progress=plain \
 | GTKWave、Icarus、Yosys、Z3 | Debian binary packages |
 | GCC/G++、Clang、GDB、QEMU、RISC-V Linux + ELF GCC | Debian binary packages |
 | NVBoard 的 SDL2、image、ttf 开发依赖 | Debian binary packages |
-| Python、NumPy、time、parallel、OpenJDK | Debian binary packages |
-| Mill 1.1.0 | Maven Central `mill-dist` bootstrap launcher（Mill 1.x 起 GitHub releases 不再提供资产） |
+| Python、NumPy、time、parallel | Debian binary packages |
+| OpenJDK、Mill 1.1.0（Maven Central `mill-dist` bootstrap launcher） | 仅 `WITH_CHISEL=1` 版本 |
 | OSS CAD Suite、ECC、ECOS Studio | `WITH_EDA=1` 下载官方发布的 Linux binaries |
 | ICsprout55 PDK | `WITH_EDA=1` shallow clone + 官方解包/patch |
 | NEMU、AM、NPC、NVBoard | 在课程 workspace 使用官方 `init.sh` 初始化（学生源码应保持可编辑） |
@@ -85,21 +85,23 @@ GTKWave、NVBoard 和 ECOS Studio 需要宿主机提供 X11/Wayland 图形转发
 
 ## 5. CI / Docker Hub（GitHub Actions）
 
-`.github/workflows/docker.yml` 在 push 到 `main` 或打 `v*` tag 时自动构建 `linux/amd64` 基础镜像，在容器内执行冒烟测试（Verilator 路径必须为 Homebrew 安装、Mill、RISC-V gcc、yosys/iverilog/z3、`ysyx-setup` 初始化 workbench），通过后才推送到 Docker Hub：
+`.github/workflows/docker.yml` 仅在手动触发（Actions 页 → docker → Run workflow）时构建并推送，共有 2×2 四个版本：
 
-| Tag | 说明 |
-| --- | --- |
-| `ovotim/ysyx:latest` | `main` 分支每次构建 |
-| `ovotim/ysyx:sha-xxxxxxx` | 每次构建的 commit 标签 |
-| `ovotim/ysyx:<vx.y.z>` | `v*` tag |
-| `ovotim/ysyx:eda` / `:sha-xxxxxxx-eda` | `WITH_EDA=1` 完整 EDA 版，仅在 Actions 页手动触发并勾选 `with_eda` 时构建 |
+| Tag | WITH_CHISEL | WITH_EDA |
+| --- | --- | --- |
+| `ovotim/ysyx:latest` | 0 | 0 |
+| `ovotim/ysyx:chisel` | 1 | 0 |
+| `ovotim/ysyx:eda` | 0 | 1 |
+| `ovotim/ysyx:full` | 1 | 1 |
+
+每个版本同时推送 `ovotim/ysyx:sha-xxxxxxx[后缀]`（`-chisel` / `-eda` / `-full`）。构建前在容器内执行冒烟测试（基础工具 + 按版本校验 chisel/EDA 组件），通过后才推送；四个版本并行构建。
 
 必需的仓库 secrets（Settings → Secrets and variables → Actions，已确认设置）：
 
-- `DOCKER_USERNAME`：Docker Hub 用户名（如 `ovo-tim`）
+- `DOCKER_USERNAME`：Docker Hub 用户名（`ovotim`）
 - `DOCKER_TOKEN`：Docker Hub → Account Settings → Security → New Access Token 生成的 token（Read/Write 权限）
 
-PR 触发时只构建和测试，不推送。首次推送会自动在 Docker Hub 创建同名仓库。
+可勾选跳过单个版本（例如只想更新 EDA 相关时保留默认即可，全部默认勾选即四个都发）。
 
 
 ### 参考

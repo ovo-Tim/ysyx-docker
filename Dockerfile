@@ -1,7 +1,10 @@
 # syntax=docker/dockerfile:1.7
 # 一生一芯 / ysyx 2607: Debian latest + Homebrew Verilator (Linux bottles)
-# docker build --progress=plain -t ysyx:2607 .
-# docker build --platform=linux/amd64 --build-arg WITH_EDA=1 -t ysyx:2607-full .
+# Four published variants: WITH_CHISEL x WITH_EDA
+#   docker build -t ysyx:2607 .                        # no Chisel, no EDA
+#   docker build --build-arg WITH_CHISEL=1 -t ysyx:2607-chisel .
+#   docker build --build-arg WITH_EDA=1 --platform=linux/amd64 -t ysyx:2607-eda .
+#   docker build --build-arg WITH_CHISEL=1 --build-arg WITH_EDA=1 --platform=linux/amd64 -t ysyx:2607-full .
 FROM debian:latest
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
@@ -15,6 +18,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
     PATH=/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:/usr/local/bin:/opt/oss-cad-suite/bin:${PATH}
 
 ARG MILL_VERSION=1.1.0
+ARG WITH_CHISEL=0
 ARG WITH_EDA=0
 ARG OSS_CAD_TAG=2026-10-13
 ARG OSS_CAD_DATE=20261013
@@ -41,7 +45,6 @@ RUN set -eux; \
       gcc-riscv64-linux-gnu g++-riscv64-linux-gnu \
       binutils-riscv64-linux-gnu libc6-dev-riscv64-cross \
       gcc-riscv64-unknown-elf binutils-riscv64-unknown-elf \
-      qemu-user qemu-system-misc openjdk-21-jdk-headless \
       libfuse2t64 libnss3 libgbm1 libasound2t64 libx11-6; \
     rm -rf /var/lib/apt/lists/*
 
@@ -72,12 +75,19 @@ RUN set -eux; \
 # Mill 1.x is distributed via Maven Central as a bootstrap launcher script
 # (GitHub releases no longer carry assets). mill version downloads the actual
 # dist artifact on first run; the first Chisel compile pulls Scala/Chisel deps.
+# The Chisel toolchain (openjdk + mill) ships only in Chisel variants.
 RUN set -eux; \
-    curl -fL --retry 5 --retry-all-errors \
-      "https://repo1.maven.org/maven2/com/lihaoyi/mill-dist/${MILL_VERSION}/mill-dist-${MILL_VERSION}-mill.sh" \
-      -o /usr/local/bin/mill; \
-    chmod 0755 /usr/local/bin/mill; \
-    test -s /usr/local/bin/mill
+    if [[ "${WITH_CHISEL}" == 1 ]]; then \
+      curl -fL --retry 5 --retry-all-errors \
+        "https://repo1.maven.org/maven2/com/lihaoyi/mill-dist/${MILL_VERSION}/mill-dist-${MILL_VERSION}-mill.sh" \
+        -o /usr/local/bin/mill; \
+      chmod 0755 /usr/local/bin/mill; \
+      test -s /usr/local/bin/mill; \
+      apt-get update; \
+      apt-get install -y --no-install-recommends openjdk-21-jdk-headless; \
+      rm -rf /var/lib/apt/lists/*; \
+      java -version; \
+    fi
 
 # Optional full E6/E8 back-end resources. These are precompiled binaries,
 # except for the PDK's required unzip/patch (not C/C++ source compilation).
