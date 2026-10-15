@@ -96,7 +96,9 @@ jobs:
           WITH_CHISEL: ${{ matrix.with_chisel }}
           WITH_EDA: ${{ matrix.with_eda }}
         run: |
-          docker run --rm ${{ env.IMAGE }}:ci \
+          docker run --rm \
+            -e WITH_CHISEL="$WITH_CHISEL" -e WITH_EDA="$WITH_EDA" \
+            ${{ env.IMAGE }}:ci \
             bash -euo pipefail -c '
               test "$(command -v verilator)" = /home/linuxbrew/.linuxbrew/bin/verilator
               verilator --version

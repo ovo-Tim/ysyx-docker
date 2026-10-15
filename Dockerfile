@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 # 一生一芯 / ysyx 2607: Debian latest + Homebrew Verilator (Linux bottles)
-# Four published variants: WITH_CHISEL x WITH_EDA
+# Four build variants: WITH_CHISEL x WITH_EDA. Build tools inside image.
 #   docker build -t ysyx:2607 .                        # no Chisel, no EDA
 #   docker build --build-arg WITH_CHISEL=1 -t ysyx:2607-chisel .
 #   docker build --build-arg WITH_EDA=1 --platform=linux/amd64 -t ysyx:2607-eda .
@@ -18,6 +18,9 @@ ENV DEBIAN_FRONTEND=noninteractive \
     PATH=/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:/usr/local/bin:/opt/oss-cad-suite/bin:${PATH}
 
 ARG MILL_VERSION=1.1.0
+ARG BUILD_JOBS=4
+ARG NVBOARD_REF=master
+ARG CHISEL_REF=master
 ARG WITH_CHISEL=0
 ARG WITH_EDA=0
 ARG OSS_CAD_TAG=2026-10-13
@@ -45,8 +48,10 @@ RUN set -eux; \
       gcc-riscv64-linux-gnu g++-riscv64-linux-gnu \
       binutils-riscv64-linux-gnu libc6-dev-riscv64-cross \
       gcc-riscv64-unknown-elf binutils-riscv64-unknown-elf \
+      qemu-user qemu-system-misc \
       libfuse2t64 libnss3 libgbm1 libasound2t64 libx11-6; \
-    rm -rf /var/lib/apt/lists/*
+    apt-get clean; \
+    rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*.deb
 
 # Homebrew's officially supported Linux prefix is essential for prebuilt bottles.
 # Homebrew cannot run "brew install" as root. Use a dedicated brew-owned account.
@@ -67,26 +72,55 @@ RUN set -eux; \
 RUN set -eux; \
     runuser -u linuxbrew -- /home/linuxbrew/.linuxbrew/bin/brew install \
       --force-bottle verilator; \
+    runuser -u linuxbrew -- /home/linuxbrew/.linuxbrew/bin/brew cleanup --prune=all; \
+    rm -rf /home/linuxbrew/.cache/Homebrew; \
     command -v verilator; \
     test "$(command -v verilator)" = /home/linuxbrew/.linuxbrew/bin/verilator; \
     verilator --version; \
     runuser -u linuxbrew -- /home/linuxbrew/.linuxbrew/bin/brew list --versions verilator
 
-# Mill 1.x is distributed via Maven Central as a bootstrap launcher script
-# (GitHub releases no longer carry assets). mill version downloads the actual
-# dist artifact on first run; the first Chisel compile pulls Scala/Chisel deps.
-# The Chisel toolchain (openjdk + mill) ships only in Chisel variants.
+# NVBoard is a C++ static library, not an apt binary. Compile it once here
+# so an image contains a ready-to-use archive and all its source/include files.
+# Only intermediates are discarded: do NOT delete nvboard.a.
+RUN set -eux; \
+    git clone --depth=1 --branch "${NVBOARD_REF}" \
+      https://github.com/NJU-ProjectN/nvboard.git /opt/nvboard; \
+    NVBOARD_HOME=/opt/nvboard make -C /opt/nvboard/example \
+      -j "${BUILD_JOBS}" nvboard-archive; \
+    test -s /opt/nvboard/build/nvboard.a; \
+    install -m 0644 /opt/nvboard/build/nvboard.a /usr/local/lib/libnvboard.a; \
+    rm -rf /opt/nvboard/.git /opt/nvboard/example/build; \
+    find /opt/nvboard/build -type f \( -name '*.o' -o -name '*.d' \) -delete
+
+# Do not set global XDG_CACHE_HOME before Homebrew's non-root installation.
+# Chisel dependency caches, when enabled, survive in the final image so a
+# new workspace does not have to redownload the entire Scala/Chisel toolchain.
+ENV XDG_CACHE_HOME=/opt/ysyx-cache \
+    COURSIER_CACHE=/opt/ysyx-cache/coursier
+
+# Optional Chisel profile: install Java + Mill, then actually compile and test
+# the official Chisel template at build time. Keep dependency caches and out/
+# because those are reusable compiled artifacts, not throwaway temp files.
+# This profile deliberately uses more image space than the plain Verilog one.
 RUN set -eux; \
     if [[ "${WITH_CHISEL}" == 1 ]]; then \
+      apt-get update; \
+      apt-get install -y --no-install-recommends openjdk-21-jdk-headless; \
+      apt-get clean; \
+      rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*.deb; \
       curl -fL --retry 5 --retry-all-errors \
         "https://repo1.maven.org/maven2/com/lihaoyi/mill-dist/${MILL_VERSION}/mill-dist-${MILL_VERSION}-mill.sh" \
         -o /usr/local/bin/mill; \
       chmod 0755 /usr/local/bin/mill; \
-      test -s /usr/local/bin/mill; \
-      apt-get update; \
-      apt-get install -y --no-install-recommends openjdk-21-jdk-headless; \
-      rm -rf /var/lib/apt/lists/*; \
+      mkdir -p "${XDG_CACHE_HOME}" "${COURSIER_CACHE}"; \
+      git clone --depth=1 --branch "${CHISEL_REF}" \
+        https://github.com/OSCPU/chisel-playground.git /opt/chisel-playground; \
+      (cd /opt/chisel-playground && mill -i compile && mill -i test); \
+      rm -rf /opt/chisel-playground/.git /opt/chisel-playground/.bsp; \
+      find "${XDG_CACHE_HOME}" -type f \( -name '*.tmp' -o -name '*.part' -o -name '*.lock' \) -delete; \
+      chmod -R a+rwX "${XDG_CACHE_HOME}"; \
       java -version; \
+      mill --version; \
     fi
 
 # Optional full E6/E8 back-end resources. These are precompiled binaries,
@@ -124,7 +158,10 @@ RUN set -eux; \
       git -C /opt/icsprout55-pdk lfs pull; \
       make -C /opt/icsprout55-pdk unzip; \
       (cd /opt/icsprout55-pdk/patch && bash patch.sh); \
-    fi
+      git -C /opt/icsprout55-pdk lfs prune; \
+      rm -rf /opt/icsprout55-pdk/.git; \
+    fi; \
+    rm -f /tmp/oss-cad-suite.tgz /tmp/ecc-cli.tar.gz /tmp/ecos-studio-release.json
 
 # Environment variables are available without sourcing a per-user shell rc.
 # IMPORTANT: Homebrew/bin comes FIRST, before OSS CAD Suite and /usr/bin.
@@ -144,6 +181,7 @@ RUN set -eux; \
       https://github.com/OSCPU/ysyx-workbench.git /opt/ysyx-workbench-template; \
     git config --system url."https://github.com/".insteadOf 'git@github.com:'; \
     mkdir -p /workspace; \
+    test -s /usr/local/lib/libnvboard.a; \
     test "$(command -v verilator)" = /home/linuxbrew/.linuxbrew/bin/verilator; \
     riscv64-linux-gnu-gcc --version | head -n 1; \
     riscv64-unknown-elf-gcc --version | head -n 1
@@ -194,7 +232,7 @@ fi
 if $chisel; then
   if [[ ! -x /usr/local/bin/mill ]]; then
     echo 'This image was built without Chisel support (no mill/OpenJDK; only the chisel/full variants include it).' >&2
-    echo 'Use ovotim/ysyx:chisel or ovotim/ysyx:full, or rebuild locally with --build-arg WITH_CHISEL=1.' >&2
+    echo 'Rebuild with --build-arg WITH_CHISEL=1 to enable Chisel.' >&2
     exit 1
   fi
   if [[ -d npc/playground ]]; then
@@ -209,6 +247,7 @@ if $chisel; then
   fi
 fi
 printf 'Workbench: %s\n' "$repo"
+echo 'Precompiled NVBoard: /opt/nvboard (set NVBOARD_HOME=/opt/nvboard to use the prebuilt archive).' 
 BASH
 chmod 0755 /usr/local/bin/ysyx-setup
 SCRIPT
