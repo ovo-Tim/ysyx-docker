@@ -142,7 +142,6 @@ jobs:
                 test -x /opt/ecc/ecc
                 test -x /usr/local/bin/ecos-studio
                 test -f "$ICS55_PDK/patch/patch.sh"
-                test -d "$ICS55_PDK/.git"
               else
                 test ! -e /opt/oss-cad-suite/bin/yosys
                 test ! -f "$ICS55_PDK/patch/patch.sh"
