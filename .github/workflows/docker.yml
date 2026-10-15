@@ -105,7 +105,9 @@ jobs:
               sudo -n true
               test "$(command -v verilator)" = /home/linuxbrew/.linuxbrew/bin/verilator
               verilator --version
-              sudo -Hu linuxbrew -- /home/linuxbrew/.linuxbrew/bin/brew list --versions verilator
+              # brew refuses to run when cwd is unreadable to linuxbrew,
+              # and the container WORKDIR is /home/ysyx (0700).
+              (cd / && sudo -Hu linuxbrew -- /home/linuxbrew/.linuxbrew/bin/brew list --versions verilator)
               # sed -n 1p reads to EOF: head -n 1 would SIGPIPE the writer
               # (exit 141) and pipefail would kill the whole script.
               iverilog -V 2>&1 | sed -n 1p
