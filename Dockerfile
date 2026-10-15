@@ -192,6 +192,11 @@ if $all; then
 fi
 
 if $chisel; then
+  if [[ ! -x /usr/local/bin/mill ]]; then
+    echo 'This image was built without Chisel support (no mill/OpenJDK; only the chisel/full variants include it).' >&2
+    echo 'Use ovotim/ysyx:chisel or ovotim/ysyx:full, or rebuild locally with --build-arg WITH_CHISEL=1.' >&2
+    exit 1
+  fi
   if [[ -d npc/playground ]]; then
     echo 'Chisel NPC already initialized'
   else

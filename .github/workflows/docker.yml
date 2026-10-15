@@ -60,19 +60,22 @@ jobs:
             with_chisel: 1
             with_eda: 1
             enabled: include_full
-    if: inputs[matrix.enabled]
     steps:
       - uses: actions/checkout@v4
+        if: inputs[matrix.enabled]
 
       - uses: docker/setup-buildx-action@v3
+        if: inputs[matrix.enabled]
 
       - name: Log in to Docker Hub
+        if: inputs[matrix.enabled]
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_TOKEN }}
 
       - name: Build image (load locally)
+        if: inputs[matrix.enabled]
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -88,6 +91,7 @@ jobs:
           cache-to: type=gha${{ matrix.with_eda == 1 && ',scope=eda' || '' }},mode=max
 
       - name: Smoke-test image
+        if: inputs[matrix.enabled]
         env:
           WITH_CHISEL: ${{ matrix.with_chisel }}
           WITH_EDA: ${{ matrix.with_eda }}
@@ -131,6 +135,7 @@ jobs:
             '
 
       - name: Push to Docker Hub
+        if: inputs[matrix.enabled]
         env:
           TAG: ${{ matrix.tag }}
           SHA_SUFFIX: ${{ matrix.sha_suffix }}
