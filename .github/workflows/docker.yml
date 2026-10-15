@@ -56,6 +56,13 @@ jobs:
               test -x /workspace/ysyx-workbench/init.sh
             '
 
+      - name: Log in to Docker Hub
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_TOKEN }}
+
       - name: Docker Hub tags
         id: meta
         uses: docker/metadata-action@v5
@@ -108,6 +115,12 @@ jobs:
               test -f "$ICS55_PDK/patch/patch.sh"
               test -d "$ICS55_PDK/.git"
             '
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_TOKEN }}
 
       - name: Docker Hub tags (EDA)
         id: meta

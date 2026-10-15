@@ -94,10 +94,10 @@ GTKWave、NVBoard 和 ECOS Studio 需要宿主机提供 X11/Wayland 图形转发
 | `ovo-tim/ysyx:<vx.y.z>` | `v*` tag |
 | `ovo-tim/ysyx:eda` / `:sha-xxxxxxx-eda` | `WITH_EDA=1` 完整 EDA 版，仅在 Actions 页手动触发并勾选 `with_eda` 时构建 |
 
-必需的仓库 secrets（Settings → Secrets and variables → Actions）：
+必需的仓库 secrets（Settings → Secrets and variables → Actions，已确认设置）：
 
-- `DOCKERHUB_USERNAME`：Docker Hub 用户名（如 `ovo-tim`）
-- `DOCKERHUB_TOKEN`：Docker Hub → Account Settings → Security → New Access Token 生成的 token（Read/Write 权限）
+- `DOCKER_USERNAME`：Docker Hub 用户名（如 `ovo-tim`）
+- `DOCKER_TOKEN`：Docker Hub → Account Settings → Security → New Access Token 生成的 token（Read/Write 权限）
 
 PR 触发时只构建和测试，不推送。首次推送会自动在 Docker Hub 创建同名仓库。
 
