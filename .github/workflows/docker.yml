@@ -51,7 +51,9 @@ jobs:
               z3 --version
               riscv64-linux-gnu-gcc --version | sed -n 1p
               riscv64-unknown-elf-gcc --version | sed -n 1p
-              python3 -c "import numpy"
+              # PATH prefers Homebrew, whose python3 has no apt numpy;
+              # the apt numpy lives in /usr/bin/python3.
+              /usr/bin/python3 -c "import numpy"
               java -version 2>&1 | sed -n 1p
               test "$(git config --system --get url.https://github.com/.insteadof)" = "git@github.com:"
               ysyx-setup
