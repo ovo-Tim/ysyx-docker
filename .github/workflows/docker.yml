@@ -116,13 +116,21 @@ jobs:
               test "$(git config --system --get url.https://github.com/.insteadof)" = "git@github.com:"
               ysyx-setup
               test -x /workspace/ysyx-workbench/init.sh
+              # Build-time compiled NVBoard archive must ship in every variant.
+              test -s /opt/nvboard/build/nvboard.a
+              test -s /usr/local/lib/libnvboard.a
 
               if [[ "$WITH_CHISEL" == 1 ]]; then
                 mill version
                 java -version 2>&1 | sed -n 1p
+                # Chisel playground was compiled/tested at build time; its
+                # dependency caches ship in the image for downstream reuse.
+                test -d /opt/chisel-playground
+                test -n "$(ls -A "${COURSIER_CACHE:?}")"
               else
                 test ! -e /usr/local/bin/mill
                 test ! -e /usr/bin/java
+                test ! -e /opt/chisel-playground
               fi
               if [[ "$WITH_EDA" == 1 ]]; then
                 /opt/oss-cad-suite/bin/yosys -V
