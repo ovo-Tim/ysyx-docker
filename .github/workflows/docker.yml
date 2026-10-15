@@ -99,13 +99,10 @@ jobs:
           docker run --rm \
             -e WITH_CHISEL="$WITH_CHISEL" -e WITH_EDA="$WITH_EDA" \
             ${{ env.IMAGE }}:ci \
-            bash -euo pipefail -x -c '
+            bash -euo pipefail -c '
               # Container default user
               test "$(id -un)" = ysyx
               sudo -n true
-              echo "DBG PATH=$PATH"
-              echo "DBG HOME=$HOME"
-              ls -l /home/linuxbrew/.linuxbrew/bin/verilator || true
               test "$(command -v verilator)" = /home/linuxbrew/.linuxbrew/bin/verilator
               verilator --version
               sudo -Hu linuxbrew -- /home/linuxbrew/.linuxbrew/bin/brew list --versions verilator

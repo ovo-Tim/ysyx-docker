@@ -65,7 +65,7 @@ RUN set -eux; \
 # Homebrew cannot run "brew install" as root. Use a dedicated brew-owned account.
 # Shallow clone both the Homebrew repository and the project repositories.
 RUN set -eux; \
-    useradd --create-home --shell /bin/bash linuxbrew; \
+    useradd --create-home --shell /bin/bash -K HOME_MODE=0711 linuxbrew; \
     install -d -o linuxbrew -g linuxbrew /home/linuxbrew/.linuxbrew; \
     runuser -u linuxbrew -- git clone --depth=1 \
       https://github.com/Homebrew/brew.git /home/linuxbrew/.linuxbrew/Homebrew; \
