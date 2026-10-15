@@ -98,6 +98,11 @@ RUN set -eux; \
 ENV XDG_CACHE_HOME=/opt/ysyx-cache \
     COURSIER_CACHE=/opt/ysyx-cache/coursier
 
+# Pre-create the writable cache root for non-root users in every variant:
+# brew (linuxbrew) and runtime students must be able to write here.
+RUN set -eux; \
+    mkdir -p "${XDG_CACHE_HOME}" "${COURSIER_CACHE}"
+
 # Optional Chisel profile: install Java + Mill, then actually compile and test
 # the official Chisel template at build time. Keep dependency caches and out/
 # because those are reusable compiled artifacts, not throwaway temp files.
